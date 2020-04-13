@@ -1,7 +1,41 @@
 const core = require('@actions/core');
 const { GitHub, context } = require('@actions/github');
 
-async function run() {
+function setOutputs(response) {
+  const {
+    data: { id: releaseId, html_url: htmlUrl, upload_url: uploadUrl }
+  } = response;
+
+  core.setOutput('id', releaseId);
+  core.setOutput('html_url', htmlUrl);
+  core.setOutput('upload_url', uploadUrl);
+}
+
+async function getRelease(github, options) {
+  try {
+    const getReleaseResponse = await github.repos.getReleaseByTag({
+      owner: options.owner,
+      repo: options.repo,
+      tag: options.tag_name
+    })
+
+    setOutputs(getReleaseResponse);
+  } catch (_error) {
+    await createRelease(github, options);
+  }
+}
+
+async function createRelease(github, options) {
+  try {
+    const createReleaseResponse = await github.repos.createRelease(options);
+
+    setOutputs(createReleaseResponse);
+  } catch (error) {
+    core.setFailed(error.message);
+  }
+}
+
+async function run(tag) {
   try {
     // Get authenticated GitHub client (Ocktokit): https://github.com/actions/toolkit/tree/master/packages/github#usage
     const github = new GitHub(process.env.GITHUB_TOKEN);
@@ -19,10 +53,7 @@ async function run() {
     const draft = core.getInput('draft', { required: false }) === 'true';
     const prerelease = core.getInput('prerelease', { required: false }) === 'true';
 
-    // Create a release
-    // API Documentation: https://developer.github.com/v3/repos/releases/#create-a-release
-    // Octokit Documentation: https://octokit.github.io/rest.js/#octokit-routes-repos-create-release
-    const createReleaseResponse = await github.repos.createRelease({
+    const options = {
       owner,
       repo,
       tag_name: tag,
@@ -30,17 +61,9 @@ async function run() {
       body,
       draft,
       prerelease
-    });
+    };
 
-    // Get the ID, html_url, and upload URL for the created Release from the response
-    const {
-      data: { id: releaseId, html_url: htmlUrl, upload_url: uploadUrl }
-    } = createReleaseResponse;
-
-    // Set the output variables for use by other actions: https://github.com/actions/toolkit/tree/master/packages/core#inputsoutputs
-    core.setOutput('id', releaseId);
-    core.setOutput('html_url', htmlUrl);
-    core.setOutput('upload_url', uploadUrl);
+    await getRelease(github, options);
   } catch (error) {
     core.setFailed(error.message);
   }
