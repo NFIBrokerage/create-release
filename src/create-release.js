@@ -11,20 +11,6 @@ function setOutputs(response) {
   core.setOutput('upload_url', uploadUrl);
 }
 
-async function getRelease(github, options) {
-  try {
-    const getReleaseResponse = await github.repos.getReleaseByTag({
-      owner: options.owner,
-      repo: options.repo,
-      tag: options.tag_name
-    })
-
-    setOutputs(getReleaseResponse);
-  } catch (_error) {
-    await createRelease(github, options);
-  }
-}
-
 async function createRelease(github, options) {
   try {
     const createReleaseResponse = await github.repos.createRelease(options);
@@ -35,7 +21,21 @@ async function createRelease(github, options) {
   }
 }
 
-async function run(tag) {
+async function getRelease(github, options) {
+  try {
+    const getReleaseResponse = await github.repos.getReleaseByTag({
+      owner: options.owner,
+      repo: options.repo,
+      tag: options.tag_name
+    });
+
+    setOutputs(getReleaseResponse);
+  } catch (_error) {
+    await createRelease(github, options);
+  }
+}
+
+async function run() {
   try {
     // Get authenticated GitHub client (Ocktokit): https://github.com/actions/toolkit/tree/master/packages/github#usage
     const github = new GitHub(process.env.GITHUB_TOKEN);
